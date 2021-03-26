@@ -12,20 +12,23 @@
 #define RAWSOCKET_H
 #ifdef __unix__
 
-#include <iostream>
-#include "RawSocketHelper.hpp"
-#include <vector>
 #include <iomanip>
+#include <iostream>
 #include <string>
+#include <vector>
+
+#include "RawSocketHelper.hpp"
 
 #elif defined(_WIN32) || defined(WIN32)
 #define OS_Windows
+#include <windows.h>
+
+#include <iomanip>
 #include <iostream>
 #include <vector>
-#include <iomanip>
-#include <windows.h>
-#include "windivert.h"
+
 #include "RawSocketHelper.hpp"
+#include "windivert.h"
 #define ntohs(x) WinDivertHelperNtohs(x)
 #define ntohl(x) WinDivertHelperNtohl(x)
 #define htons(x) WinDivertHelperHtons(x)
@@ -37,12 +40,12 @@ typedef std::vector<uint8_t> Packet;
 class RawSocket {
     static const int PACKET_SIZE = 65535;
 
-private:
+   private:
     Packet packet;
     bool debugMode{};
     RawSocketHelper rawSocketHelper{};
 
-public:
+   public:
 #ifdef __unix__
 
     explicit RawSocket(const std::string &intName, bool debug = false);
@@ -53,7 +56,7 @@ public:
 
 #endif
     RawSocket(uint32_t ipAddress, bool debug = false);
-    
+
     RawSocket();
 
     ~RawSocket();

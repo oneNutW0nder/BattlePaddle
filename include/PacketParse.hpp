@@ -98,7 +98,7 @@ struct bp_keep_alive_t {
 };
 
 // BP proxy protocol structs
-enum proxy_code_t {
+enum class proxy_code_t {
     noop_e = 0x00,        // A default/null proxy status code
     proxy_req_e = 0x20,   // Proxy request message ID
     proxy_resp_e = 0x30,  // Proxy request response message ID
@@ -123,8 +123,9 @@ struct info_t {
     bp_response_t bpResponse{};
     bp_keep_alive_t bpKeepAlive{};
     bp_proxy_t bpProxy{};
-    bp_header_t ogBPData{};
-    char *leftOvers;  // ! Testing for leftover proxy data
+    // bp_header_t ogBPHeader{};
+    // char leftOvers[sizeof(bp_raw_command_t)];  // ! Testing for leftover proxy data
+    std::string encData;
 };
 
 #pragma pack(pop)
