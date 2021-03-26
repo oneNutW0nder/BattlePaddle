@@ -102,8 +102,10 @@ enum proxy_code_t {
     noop_e = 0x00,        // A default/null proxy status code
     proxy_req_e = 0x20,   // Proxy request message ID
     proxy_resp_e = 0x30,  // Proxy request response message ID
-    serv_info_e = 0x40    // Let's the C2 server know this is data from a proxied session; Can also be used
-};                        // to identify message as part of a proxy session
+    serv_info_e = 0x40,   // Let's the C2 server know this is data from a proxied session; Can also be used
+                          // to identify message as part of a proxy session
+    proxy_end_e = 0x50    // Signifies the end of a proxy session
+};
 
 // ! BP header will always follow proxy type
 struct bp_proxy_t {
@@ -120,7 +122,7 @@ struct info_t {
     bp_raw_command_t bpRawCommand{};
     bp_response_t bpResponse{};
     bp_keep_alive_t bpKeepAlive{};
-    bp_proxy_t bpProxyReq{};
+    bp_proxy_t bpProxy{};
     bp_header_t ogBPData{};
     char *leftOvers;  // ! Testing for leftover proxy data
 };

@@ -244,7 +244,7 @@ std::unique_ptr<info_t> parsePacket(Packet packet) {
                     break;
                 // TODO: This is where the status code for BP proxying packets will be picked up
                 case 0x05:
-                    info->bpProxyReq = load<bp_proxy_t>(stream);
+                    info->bpProxy = load<bp_proxy_t>(stream);
 
                     // Read in the BP header and the rest of the data that needs to be proxied
                     info->ogBPData = load<bp_header_t>(stream);
