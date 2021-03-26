@@ -24,13 +24,9 @@ RawSocket::RawSocket(const uint32_t IP, bool debug) : debugMode(debug) {
 
 RawSocket::RawSocket() = default;
 
-Packet RawSocket::getPacket() {
-    return packet;
-}
+Packet RawSocket::getPacket() { return packet; }
 
-std::vector<uint8_t> RawSocket::getMacOfIP(uint32_t targetIP) {
-    return rawSocketHelper.getMacOfIP(targetIP);
-}
+std::vector<uint8_t> RawSocket::getMacOfIP(uint32_t targetIP) { return rawSocketHelper.getMacOfIP(targetIP); }
 
 int RawSocket::receive() {
     packet.clear();
@@ -56,7 +52,7 @@ int RawSocket::receive() {
 }
 
 int RawSocket::send(Packet dataframe) {
-    struct sockaddr_ll socket_address{};
+    struct sockaddr_ll socket_address {};
     socket_address.sll_ifindex = rawSocketHelper.interfaceIndex;
     socket_address.sll_halen = ETH_ALEN;
 
@@ -64,22 +60,17 @@ int RawSocket::send(Packet dataframe) {
         if (debugMode) {
             std::cout << "Packet must be atleast 14 bytes long" << std::endl;
         }
-    } else if (
-            sendto(rawSocketHelper.sockFd, dataframe.data(), dataframe.size(), 0, (struct sockaddr *) &socket_address,
-                   sizeof(struct sockaddr_ll)) < 0) {
+    } else if (sendto(rawSocketHelper.sockFd, dataframe.data(), dataframe.size(), 0, (struct sockaddr *)&socket_address,
+                      sizeof(struct sockaddr_ll)) < 0) {
         perror("Send failed: ");
         return -1;
     }
     return 0;
 }
 
-uint32_t RawSocket::getIP() {
-    return rawSocketHelper.ipAddress;
-}
+uint32_t RawSocket::getIP() { return rawSocketHelper.ipAddress; }
 
-std::vector<uint8_t> RawSocket::getMac() {
-    return rawSocketHelper.macAddress;
-}
+std::vector<uint8_t> RawSocket::getMac() { return rawSocketHelper.macAddress; }
 
 #elif defined(OS_Windows)
 
@@ -93,18 +84,15 @@ RawSocket::RawSocket(uint32_t ipAddress, bool debug) : debugMode(debug) {
     rawSocketHelper.findOutwardFacingNIC(ipAddress);
 }
 
-Packet RawSocket::getPacket() {
-    return packet;
-}
+Packet RawSocket::getPacket() { return packet; }
 
 int RawSocket::receive() {
     packet.clear();
     unsigned char buf[PACKET_SIZE];
     int packetLen = 0;
-    if (!WinDivertRecv(rawSocketHelper.handle, buf, PACKET_SIZE, reinterpret_cast<UINT *>(&packetLen), &rawSocketHelper.address))
-    {
-        fprintf(stderr, "warning: failed to read packet (%d)\n",
-            GetLastError());
+    if (!WinDivertRecv(rawSocketHelper.handle, buf, PACKET_SIZE, reinterpret_cast<UINT *>(&packetLen),
+                       &rawSocketHelper.address)) {
+        fprintf(stderr, "warning: failed to read packet (%d)\n", GetLastError());
         return -1;
     }
     packet.insert(packet.begin(), buf, buf + packetLen);
@@ -123,8 +111,7 @@ int RawSocket::send(Packet dataframe) {
     if (sendAddr != nullptr) {
         sendAddr->Outbound = 1;
         if (!WinDivertSend(rawSocketHelper.handle, dataframe.data(), dataframe.size(), NULL, sendAddr.get())) {
-            fprintf(stderr, "warning: failed to send packet (%d)\n",
-                GetLastError());
+            fprintf(stderr, "warning: failed to send packet (%d)\n", GetLastError());
             return -1;
         }
         return 0;
@@ -132,8 +119,5 @@ int RawSocket::send(Packet dataframe) {
     return 1;
 }
 
-uint32_t RawSocket::getIP() {
-    return rawSocketHelper.ipAddress;
-}
+uint32_t RawSocket::getIP() { return rawSocketHelper.ipAddress; }
 #endif
-
